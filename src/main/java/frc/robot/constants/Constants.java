@@ -1,0 +1,234 @@
+// Copyright 2021-2025 FRC 6328
+// http://github.com/Mechanical-Advantage
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// version 3 as published by the Free Software Foundation or
+// available in the root directory of this project.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+
+package frc.robot.constants;
+
+import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.RobotBase;
+import frc.robot.util.LoggedTunableNumber;
+
+/**
+ * This class defines the runtime mode used by AdvantageKit. The mode is always "real" when running
+ * on a roboRIO. Change the value of "simMode" to switch between "sim" (physics sim) and "replay"
+ * (log replay from a file).
+ */
+public final class Constants {
+
+  public static final boolean tuningMode = true;
+
+  public static boolean disableHAL = false;
+
+  public static void disableHAL() {
+    disableHAL = true;
+  }
+
+  public static final Mode simMode = Mode.SIM;
+  public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
+
+  public static final String kCANivore = "CANmeloAnthony";
+
+  public static final boolean elevatorEnabled = true;
+  public static final boolean armEnabled = true;
+  public static final boolean funnelEnabled = true;
+  public static final boolean climberEnabled = true;
+
+  public static final boolean magneticLimitSwitchesEnabled = true;
+  public static final boolean beamBreaksEnabled = false;
+
+  public static final double NEO_FREE_SPEED = 6000.0; // TODO find the real free speed
+  // LED Constants
+  public static final int LED_NUM = 133; // TODO: Determine number of leds
+  public static final int LED_BRIGHTNESS = 140;
+
+  public class Elevator {
+
+    // NEOS
+    public static final int kElevatorPDH = 3; // Clockwise
+    public static final int kElevatorRoboRio = 4; // Counterclockwise
+
+    public static final double innerStageWeight = 12.0; // lbs
+
+    public static final int EncoderDIO2 = 2;
+    public static final int EncoderDIO3 = 3;
+
+    public static final double gearRatio = 9.0;
+    public static final double sprocketDiameter = Units.inchesToMeters(1.751); // pitch diameter
+
+    public static final double setpointToleranceMeters = 0.01;
+
+    public static final int supplyCurrentLimit = 40;
+
+    public static final double maxOutput = 1;
+    public static final double minOutput = -1;
+
+    public static final double mechanismMaxAccel = 3.3274;
+    public static final double mechanismMaxCruiseVel = 1.597152;
+
+    public static final double homingVoltage = -1.0;
+    public static final double homingVelocityThreshold = 0.01;
+    public static final double homingThresholdSec = 0.25;
+  }
+
+  public class Manipulator {
+
+    // NEO 550s
+    public static final int kClaw = 6;
+
+    // NEO
+    public static final int kArm = 5;
+
+    public class Arm {
+      public static final double innerStageWeight = 12.0; // lbs
+
+      public static final double motorGearRatio = 75.0;
+
+      // public static final int EncoderDIO2 = 2;
+      // public static final int EncoderDIO3 = 3;
+
+      public static final double gearRatio = 9.0;
+      public static final double sprocketDiameter = Units.inchesToMeters(1.751); // pitch diameter
+
+      public static final double setpointToleranceMeters = 0.01;
+
+      public static final double stowedSetpointMechanismRotations = 0.0;
+      public static final double feedSetpointMechanismRotations = 0.0;
+      public static final double l2SetpointMechanismRotations = 0.0;
+      public static final double l3SetpointMechanismRotations = 0.0;
+      public static final double l4SetpointMechanismRotations = 0.0;
+      public static final double setpointToleranceMechanismRotations = 0.05;
+
+      public static final LoggedTunableNumber kP1 =
+          new LoggedTunableNumber("Manipulator/P Value Arm", 0.7); // 0.7 //0.255
+      public static final LoggedTunableNumber kI1 =
+          new LoggedTunableNumber("Manipulator/I Value Arm", 0.0); // 0.07
+      public static final LoggedTunableNumber kD1 =
+          new LoggedTunableNumber("Manipulator/D Value Arm", 0.0); // 0.0
+
+      public static final double kP = 0.75;
+      public static final double kI = 0.1;
+      public static final double kD = 0.0;
+      public static final double minOutput = -0.7;
+      public static final double maxOutput = 0.7;
+
+      // Wrap to 0 at threshold assuming pivot is pushed back hard against zero point hardstop
+      public static final double absZeroWrapThreshold = 0.95;
+
+      public static final int currentLimit = 40;
+
+      public static final double mechanismMaxAccel = 3.3274;
+      public static final double mechanismMaxCruiseVel = 1.597152;
+
+      public static final double homingVoltage = -1.0;
+      public static final double homingVelocityThreshold = 0.01;
+      public static final double homingThresholdSec = 0.25;
+
+      public enum ArmStates {
+        IDLE,
+        FEED,
+        L2,
+        L3,
+        L4
+      }
+    }
+
+    public class Claw {
+
+      public static final double feedSpeed = 0.175;
+      public static final double scoreL1Speed = .6;
+      public static final double scoreL2Speed = 0.9;
+      public static final double scoreSpeed = -0.6;
+      public static final double scoreL4Speed = -0.3;
+      public static final int currentLimit = 20;
+      public static final double coralDetectionCurrentThreshold =
+          2000.0; // Placeholder value, needs experimental determination
+    }
+  }
+
+  public class Funnel {
+
+    public static final double feedSpeed = .325;
+
+    // NEO 550
+    public static final int kFunnelIntake = 9;
+
+    // NEO
+    public static final int kFunnelPivot = 8;
+
+    // public class Pivot {
+
+    //   public static final int EncoderDIO0 = 0;
+    //   public static final int EncoderDIO1 = 1;
+
+    //   public static final double stowedSetpointMechanismRotations = 0.0; // TODO find real
+    // position
+    //   public static final double climbReadySetpointMechanismRotations =
+    //       0.0; // TODO find real position
+    //   public static final double setpointToleranceMechanismRotations = 0.01;
+
+    //   public static final double kP = 3.0;
+    //   public static final double kI = 0.0;
+    //   public static final double kD = 0.0;
+    //   // public static final double kFF = 0.0;
+    //   public static final double minOutput = -1;
+    //   public static final double maxOutput = 1;
+
+    //   public static final double motorGearRatio = 16.0;
+
+    //   public static final int supplyCurrentLimit = 40;
+
+    //   // Wrap to 0 at threshold assuming pivot is pushed back hard against zero point hardstop
+    //   public static final double absZeroWrapThreshold = 0.95;
+    // }
+
+    public class Intake {
+
+      public static final double motorGearRatio = 4.0;
+
+      public static final double feedVoltage = 0.32;
+      public static final double reverseVoltage = -0.32;
+
+      public static final int supplyCurrentLimit = 20;
+    }
+  }
+
+  // public class Climber {
+
+  //   public static final int kClimber = 7; // dd
+
+  //   public static final double gearRatio = 80.0;
+  //   public static final double splineXLDiameter = Units.inchesToMeters(1.37795);
+  //   public static final double setpointToleranceMeters = 0.01;
+  //   public static final int currentLimit = 40;
+
+  //   public static final double minOutput = -0.85;
+  //   public static final double maxOutput = 0.85;
+
+  //   public static final double stowedPoistion = 0;
+  //   public static final double climbingPosition = 20; // TODO find real position
+  // }
+
+  public class LaserCan {
+    public static final int kLaserCan = 34;
+  }
+
+  public static enum Mode {
+    /** Running on a real robot. */
+    REAL,
+
+    /** Running a physics simulator. */
+    SIM,
+
+    /** Replaying from a log file. */
+    REPLAY
+  }
+}

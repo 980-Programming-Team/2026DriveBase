@@ -1,0 +1,202 @@
+package frc.robot;
+
+import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.path.PathConstraints;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.GenericHID;
+import edu.wpi.first.wpilibj.XboxController;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.robot.commands.DriveCommands;
+import frc.robot.constants.Constants;
+import frc.robot.constants.TunerConstants;
+import frc.robot.subsystems.Superstructure;
+import frc.robot.subsystems.drive.Drive;
+import frc.robot.subsystems.drive.GyroIO;
+import frc.robot.subsystems.drive.GyroIOPigeon2;
+import frc.robot.subsystems.drive.ModuleIO;
+import frc.robot.subsystems.drive.ModuleIOSim;
+import frc.robot.subsystems.drive.ModuleIOTalonFX;
+import frc.robot.subsystems.vision.Vision;
+import frc.robot.subsystems.vision.VisionConstants;
+import frc.robot.subsystems.vision.VisionIO;
+import frc.robot.subsystems.vision.VisionIOLimelight;
+import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
+
+/**
+ * This class is where the bulk of the robot should be declared. Since Command-based is a
+ * "declarative" paradigm, very little robot logic should actually be handled in the {@link Robot}
+ * periodic methods (other than the scheduler calls). Instead, the structure of the robot (including
+ * subsystems, commands, and button mappings) should be declared here.
+ */
+public class RobotContainer {
+
+  //// Subsystems
+  private final Drive drive;
+  private final Vision vision;
+
+  public static Superstructure superstructure = new Superstructure();
+  //        ^^^^^^^^^^^^^^ <- whole robot works in Superstructure object
+  //                           -> right click and click "Go To Defintion" to read
+  //                              or through vscode explorer in subsystems folder
+
+  //// Controllers
+  public static SourceManager driver = new SourceManager(0, superstructure);
+
+  public static ScoringManager operatorBoard = new ScoringManager(1, 2, superstructure);
+
+  //// Dashboard inputs (for debugging with Elastic)
+  private final LoggedDashboardChooser<Command> autoChooser;
+
+  //// Create the constraints to use while pathfinding (Max Velocity, Max Acceleration, ...)
+  public static PathConstraints constraints =
+      new PathConstraints(2.25, 2, Units.degreesToRadians(540), Units.degreesToRadians(720));
+
+  /** The container for the robot. Contains subsystems, OI devices, and commands. */
+  public RobotContainer() {
+    switch (Constants.currentMode) {
+      case REAL:
+        // Real robot, instantiate hardware IO implementations
+        drive =
+            new Drive(
+                new GyroIOPigeon2(),
+                new ModuleIOTalonFX(TunerConstants.FrontLeft),
+                new ModuleIOTalonFX(TunerConstants.FrontRight),
+                new ModuleIOTalonFX(TunerConstants.BackLeft),
+                new ModuleIOTalonFX(TunerConstants.BackRight));
+
+        vision =
+            new Vision(
+                drive::addVisionMeasurement,
+                new VisionIOLimelight(VisionConstants.limelightOne, drive::getRotation),
+                new VisionIOLimelight(VisionConstants.limelightTwo, drive::getRotation));
+        break;
+
+      case SIM:
+        // Sim robot, instantiate physics sim IO implementations
+        drive =
+            new Drive(
+                new GyroIO() {},
+                new ModuleIOSim(TunerConstants.FrontLeft),
+                new ModuleIOSim(TunerConstants.FrontRight),
+                new ModuleIOSim(TunerConstants.BackLeft),
+                new ModuleIOSim(TunerConstants.BackRight));
+
+        vision = new Vision(drive::addVisionMeasurement, new VisionIO() {}, new VisionIO() {});
+        break;
+
+      default:
+        // Replayed robot, disable IO implementations
+        drive =
+            new Drive(
+                new GyroIO() {},
+                new ModuleIO() {},
+                new ModuleIO() {},
+                new ModuleIO() {},
+                new ModuleIO() {});
+
+        vision = new Vision(drive::addVisionMeasurement, new VisionIO() {}, new VisionIO() {});
+        break;
+    }
+
+    // Set up auto routines
+    registerNamedCommands();
+    autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
+
+    // Set up SysId routines
+    autoChooser.addOption(
+        "Drive Wheel Radius Characterization", DriveCommands.wheelRadiusCharacterization(drive));
+    autoChooser.addOption(
+        "Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
+    autoChooser.addOption(
+        "Drive SysId (Quasistatic Forward)",
+        drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
+    autoChooser.addOption(
+        "Drive SysId (Quasistatic Reverse)",
+        drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
+    autoChooser.addOption(
+        "Drive SysId (Dynamic Forward)", drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
+    autoChooser.addOption(
+        "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+
+    // Configure the button bindings
+    configureButtonBindings();
+    DriverStation.silenceJoystickConnectionWarning(true);
+  }
+
+  /**
+   * Use this method to define your button->command mappings. Buttons can be created by
+   * instantiating a {@link GenericHID} or one of its subclasses ({@link
+   * edu.wpi.first.wpilibj.Joystick} or {@link XboxController}), and then passing it to a {@link
+   * edu.wpi.first.wpilibj2.command.button.JoystickButton}.
+   */
+  private void configureButtonBindings() {
+    // Default command, normal field-relative drive
+    drive.setDefaultCommand(
+        DriveCommands.joystickDrive(
+            drive,
+            () -> -driver.getDriver().getLeftY(),
+            () -> -driver.getDriver().getLeftX(),
+            () -> -driver.getDriver().getRightX()));
+
+    // Reset gyro to 0° when A button is pressed (Rezero)
+    driver
+        .getDriver()
+        .a()
+        .onTrue(
+            Commands.runOnce(
+                    () ->
+                        drive.setPose(
+                            new Pose2d(drive.getPose().getTranslation(), new Rotation2d())),
+                    drive)
+                .ignoringDisable(true));
+
+    // Xbox Controller:
+    driver.configScoringPosButtons();
+    // Custom Panel:
+    operatorBoard.configureScoringButtons();
+    operatorBoard.configScoringPosButtons();
+  }
+
+  // Commands for auto to run
+  public void registerNamedCommands() {}
+
+  /**
+   * Use this to pass the autonomous command to the main {@link Robot} class.
+   *
+   * @return the command to run in autonomous
+   */
+  public Command getAutonomousCommand() {
+    return autoChooser.get();
+  }
+
+  boolean isInMatch;
+
+  public void autoInit() {
+    isInMatch = true;
+    // tells robot match has started
+  }
+
+  public void disabledInit() {}
+
+  public void autonomousPeriodic() {}
+
+  // works within real match:
+  boolean AllianceColorSelected = false;
+
+  public void disabledPeriodic() {
+    if (true) {
+      // now that robot is in match we get our actual alliance color and configure operator once
+      // more for teleop
+      // -> gets the right color to change the positions the robot tracks to for the reef
+      operatorBoard.configScoringPosButtons();
+      AllianceColorSelected = true;
+      // checks only once so it doesn't run infinitely and use too much battery/memory
+      // -> works if venue runs competition properly !!
+    }
+  }
+}
