@@ -1,0 +1,74 @@
+// Copyright (c) FIRST and other WPILib contributors.
+// Open Source Software; you can modify and/or share it under the terms of
+// the WPILib BSD license file in the root directory of this project.
+
+package frc.robot.subsystems.drive.Collector;
+
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.SparkMax;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import frc.robot.constants.*;
+
+public class Collector extends SubsystemBase {
+  private SparkMax index;
+  private SparkMax collect;
+
+  private boolean override;
+
+  private int RUMBLE_TIMER = 25;
+
+  private CommandXboxController xboxD;
+  private CommandXboxController xboxO;
+
+  /** Creates a new Collector. */
+  public Collector() {
+    collect = new SparkMax(Constants.Collector.kCollector, MotorType.kBrushless);
+    // collect.configure()
+    override = false;
+
+    // beamBreak = new DigitalInput(0);
+
+    // primaryNoteDetect = new DigitalInput(0);
+    // this.xboxD = xboxD;
+    // this.xboxO = xboxO;
+    // parameter: CommandXboxController xboxD , CommandXboxController xboxO
+
+  }
+
+  @Override
+  public void periodic() {
+    // boolean beamBreakState = beamBreak.get();
+    // SmartDashboard.putBoolean("BeamBreak", beamBreakState);
+    // if()
+    // xboxD.getHID().setRumble(RumbleType.kBothRumble , 1);
+    // This method will be called once per scheduler run
+  }
+
+  public void intake() {
+    collect.set(-.7);
+  }
+
+  public void outtake() {
+    collect.set(.7);
+  }
+
+  public void index() {
+    index.set(.5);
+  }
+
+  public void indexIntoShooter() {
+    collect.set(-.7);
+    index.set(.5);
+  }
+
+  public void indexIntoAmp() {
+    collect.set(.7);
+    index.set(.3);
+  }
+
+  public void off() {
+    collect.set(0);
+    index.set(0);
+  }
+}

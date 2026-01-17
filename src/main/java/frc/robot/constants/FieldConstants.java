@@ -56,6 +56,7 @@ public class FieldConstants {
 
     static {
       // Initialize faces
+      /*
       centerFaces[0] =
           new Pose2d(
               Units.inchesToMeters(118.003),
@@ -160,7 +161,7 @@ public class FieldConstants {
         }
         branchPositions.add(fillRight);
         branchPositions.add(fillLeft);
-      }
+      }*/
     }
   }
 

@@ -79,15 +79,19 @@ public final class Constants {
     public static final double homingThresholdSec = 0.25;
   }
 
+  public class Collector {
+    public static final int kCollector = 0;
+  }
+
   public class Manipulator {
 
     // NEO 550s
-    public static final int kClaw = 6;
+    public static final int kShooter = 6;
 
     // NEO
-    public static final int kArm = 5;
+    public static final int kangleMotor = 5;
 
-    public class Arm {
+    public class Shooter {
       public static final double innerStageWeight = 12.0; // lbs
 
       public static final double motorGearRatio = 75.0;
@@ -141,7 +145,7 @@ public final class Constants {
       }
     }
 
-    public class Claw {
+    public class Hood {
 
       public static final double feedSpeed = 0.175;
       public static final double scoreL1Speed = .6;
