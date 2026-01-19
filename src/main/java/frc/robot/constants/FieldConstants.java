@@ -1,386 +1,62 @@
+// Copyright (c) 2025-2026 Littleton Robotics
+// http://github.com/Mechanical-Advantage
+//
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file at
+// the root directory of this project.
+
 package frc.robot.constants;
 
-import edu.wpi.first.apriltag.AprilTag;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.math.geometry.*;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.util.Units;
-import java.util.*;
+import edu.wpi.first.wpilibj.Filesystem;
+import java.io.IOException;
+import java.nio.file.Path;
+import lombok.Getter;
 
 /**
  * Contains various field dimensions and useful reference points. All units are in meters and poses
- * have a blue alliance origin. x, y
+ * have a blue alliance origin.
  */
 public class FieldConstants {
-  public static final double fieldLength = Units.inchesToMeters(651.22);
-  public static final double fieldWidth = Units.inchesToMeters(317.69);
-  public static final double startingLineX =
-      Units.inchesToMeters(181.56); // Measured from the inside of starting line
-  public static final double ballDiameter = Units.inchesToMeters(5.91);
+  public static final double fieldLength = AprilTagLayoutType.OFFICIAL.getLayout().getFieldLength();
+  public static final double fieldWidth = AprilTagLayoutType.OFFICIAL.getLayout().getFieldWidth();
 
-  public static class Outpost {
-    public static Pose2d center =
-        new Pose2d(Units.inchesToMeters(2), Units.inchesToMeters(16), Rotation2d.fromDegrees(0));
-    public static final double outpostBottomOpening = Units.inchesToMeters(28.1);
-  }
+  public static final int aprilTagCount = AprilTagLayoutType.OFFICIAL.getLayout().getTags().size();
+  public static final double aprilTagWidth = Units.inchesToMeters(6.5);
+  public static final AprilTagLayoutType defaultAprilTagType = AprilTagLayoutType.OFFICIAL;
 
-  public static class Depot {
-    public static Pose2d center =
-        new Pose2d(
-            Units.inchesToMeters(13.5), Units.inchesToMeters(234.77), Rotation2d.fromDegrees(0));
-  }
+  public static final Translation2d hubCenter = new Translation2d(4.6256194, 4.0346376);
 
-  public static class Tower {
-    public static Pose2d center =
-        new Pose2d(
-            Units.inchesToMeters(45.18), Units.inchesToMeters(147.47), Rotation2d.fromDegrees(0));
-    public static final double otherRung = Units.inchesToMeters(18);
-    public static final double firstRung = Units.inchesToMeters(27);
-  }
+  @Getter
+  public enum AprilTagLayoutType {
+    OFFICIAL("2026-official"),
+    NONE("2026-none");
 
-  public static class Hub {
-    public static final double hubHeight = Units.inchesToMeters(72);
-    public static Pose2d center =
-        new Pose2d(
-            Units.inchesToMeters(182.11),
-            Units.inchesToMeters(158.84),
-            Rotation2d.fromDegrees(-180));
-    public static final double flatSideOpening = Units.inchesToMeters(41.7);
-    /*  public static final double faceToZoneLine =
-    Units.inchesToMeters(12); // Side of the reef to the inside of the reef zone line
-    */
+    AprilTagLayoutType(String name) {
+      try {
+        layout =
+            new AprilTagFieldLayout(
+                Constants.disableHAL
+                    ? Path.of("src", "main", "deploy", "apriltags", name + ".json")
+                    : Path.of(
+                        Filesystem.getDeployDirectory().getPath(), "apriltags", name + ".json"));
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
 
-    public static final Pose2d[] centerFaces =
-        new Pose2d[12]; // Starting facing the driver station in clockwise order
-    public static final List<Map<ReefLevel, Pose3d>> branchPositions =
-        new ArrayList<>(); // Starting at the right branch facing the driver station in clockwise
-
-    static {
-      // Initialize faces
-      centerFaces[0] =
-          new Pose2d(
-              Units.inchesToMeters(118.003),
-              Units.inchesToMeters(164.000),
-              Rotation2d.fromDegrees(0));
-      centerFaces[1] =
-          new Pose2d(
-              Units.inchesToMeters(118.003),
-              Units.inchesToMeters(151.850),
-              Rotation2d.fromDegrees(0));
-      centerFaces[2] =
-          new Pose2d(
-              Units.inchesToMeters(153.116),
-              Units.inchesToMeters(212.000),
-              Rotation2d.fromDegrees(-60));
-      centerFaces[3] =
-          new Pose2d(
-              Units.inchesToMeters(142.489),
-              Units.inchesToMeters(205.502),
-              Rotation2d.fromDegrees(-60));
-      centerFaces[4] =
-          new Pose2d(
-              Units.inchesToMeters(199.118),
-              Units.inchesToMeters(211.145),
-              Rotation2d.fromDegrees(-120));
-      centerFaces[5] =
-          new Pose2d(
-              Units.inchesToMeters(210.300),
-              Units.inchesToMeters(205.300),
-              Rotation2d.fromDegrees(-120));
-
-      centerFaces[6] =
-          new Pose2d(
-              Units.inchesToMeters(234.250),
-              Units.inchesToMeters(152.250),
-              Rotation2d.fromDegrees(180));
-      centerFaces[7] =
-          new Pose2d(
-              Units.inchesToMeters(234.000),
-              Units.inchesToMeters(166.144),
-              Rotation2d.fromDegrees(180));
-      centerFaces[8] =
-          new Pose2d(
-              Units.inchesToMeters(201.500),
-              Units.inchesToMeters(106.000),
-              Rotation2d.fromDegrees(120));
-      centerFaces[9] =
-          new Pose2d(
-              Units.inchesToMeters(214.000),
-              Units.inchesToMeters(111.300),
-              Rotation2d.fromDegrees(120));
-      centerFaces[10] =
-          new Pose2d(
-              Units.inchesToMeters(140.375),
-              Units.inchesToMeters(112.144),
-              Rotation2d.fromDegrees(60));
-      centerFaces[11] =
-          new Pose2d(
-              Units.inchesToMeters(153.900),
-              Units.inchesToMeters(105.00),
-              Rotation2d.fromDegrees(60));
-
-      // Initialize branch positions
-      for (int face = 0; face < 6; face++) {
-        Map<ReefLevel, Pose3d> fillRight = new HashMap<>();
-        Map<ReefLevel, Pose3d> fillLeft = new HashMap<>();
-        for (var level : ReefLevel.values()) {
-          Pose2d poseDirection = new Pose2d(center, Rotation2d.fromDegrees(180 - (60 * face)));
-          double adjustX = Units.inchesToMeters(30.738);
-          double adjustY = Units.inchesToMeters(6.469);
-
-          fillRight.put(
-              level,
-              new Pose3d(
-                  new Translation3d(
-                      poseDirection
-                          .transformBy(new Transform2d(adjustX, adjustY, new Rotation2d()))
-                          .getX(),
-                      poseDirection
-                          .transformBy(new Transform2d(adjustX, adjustY, new Rotation2d()))
-                          .getY(),
-                      level.height),
-                  new Rotation3d(
-                      0,
-                      Units.degreesToRadians(level.pitch),
-                      poseDirection.getRotation().getRadians())));
-          fillLeft.put(
-              level,
-              new Pose3d(
-                  new Translation3d(
-                      poseDirection
-                          .transformBy(new Transform2d(adjustX, -adjustY, new Rotation2d()))
-                          .getX(),
-                      poseDirection
-                          .transformBy(new Transform2d(adjustX, -adjustY, new Rotation2d()))
-                          .getY(),
-                      level.height),
-                  new Rotation3d(
-                      0,
-                      Units.degreesToRadians(level.pitch),
-                      poseDirection.getRotation().getRadians())));
-        }
-        branchPositions.add(fillRight);
-        branchPositions.add(fillLeft);
+      try {
+        layoutString = new ObjectMapper().writeValueAsString(layout);
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException(
+            "Failed to serialize AprilTag layout JSON " + toString() + "for Northstar");
       }
     }
+
+    private final AprilTagFieldLayout layout;
+    private final String layoutString;
   }
-
-  public static class StagingPositions {
-    // Measured from the center of the ice cream
-    public static final Pose2d leftIceCream =
-        new Pose2d(Units.inchesToMeters(48), Units.inchesToMeters(230.5), new Rotation2d());
-    public static final Pose2d middleIceCream =
-        new Pose2d(Units.inchesToMeters(48), Units.inchesToMeters(158.5), new Rotation2d());
-    public static final Pose2d rightIceCream =
-        new Pose2d(Units.inchesToMeters(48), Units.inchesToMeters(86.5), new Rotation2d());
-  }
-
-  public enum ReefLevel {
-    L1(Units.inchesToMeters(25.0), 0),
-    L2(Units.inchesToMeters(31.875), -35),
-    L3(Units.inchesToMeters(47.625), -35),
-    L4(Units.inchesToMeters(72), -90);
-
-    ReefLevel(double height, double pitch) {
-      this.height = height;
-      this.pitch = pitch; // in degrees
-    }
-
-    public static ReefLevel fromLevel(int level) {
-      return Arrays.stream(values())
-          .filter(height -> height.ordinal() == level)
-          .findFirst()
-          .orElse(L4);
-    }
-
-    public final double height;
-    public final double pitch;
-  }
-
-  public static final double aprilTagWidth = Units.inchesToMeters(6.50);
-  public static final int aprilTagCount = 22;
-  public static final AprilTagFieldLayout aprilTagFieldLayout =
-      new AprilTagFieldLayout(
-          List.of(
-              new AprilTag(
-                  1,
-                  new Pose3d(
-                      16.697198,
-                      0.65532,
-                      1.4859,
-                      new Rotation3d(
-                          new Quaternion(0.4539904997395468, 0.0, 0.0, 0.8910065241883678)))),
-              new AprilTag(
-                  2,
-                  new Pose3d(
-                      16.697198,
-                      7.3964799999999995,
-                      1.4859,
-                      new Rotation3d(
-                          new Quaternion(-0.45399049973954675, -0.0, 0.0, 0.8910065241883679)))),
-              new AprilTag(
-                  3,
-                  new Pose3d(
-                      11.560809999999998,
-                      8.05561,
-                      1.30175,
-                      new Rotation3d(
-                          new Quaternion(-0.7071067811865475, -0.0, 0.0, 0.7071067811865476)))),
-              new AprilTag(
-                  4,
-                  new Pose3d(
-                      9.276079999999999,
-                      6.137656,
-                      1.8679160000000001,
-                      new Rotation3d(
-                          new Quaternion(0.9659258262890683, 0.0, 0.25881904510252074, 0.0)))),
-              new AprilTag(
-                  5,
-                  new Pose3d(
-                      9.276079999999999,
-                      1.914906,
-                      1.8679160000000001,
-                      new Rotation3d(
-                          new Quaternion(0.9659258262890683, 0.0, 0.25881904510252074, 0.0)))),
-              new AprilTag(
-                  6,
-                  new Pose3d(
-                      13.474446,
-                      3.3063179999999996,
-                      0.308102,
-                      new Rotation3d(
-                          new Quaternion(-0.8660254037844387, -0.0, 0.0, 0.49999999999999994)))),
-              new AprilTag(
-                  7,
-                  new Pose3d(
-                      13.890498,
-                      4.0259,
-                      0.308102,
-                      new Rotation3d(new Quaternion(1.0, 0.0, 0.0, 0.0)))),
-              new AprilTag(
-                  8,
-                  new Pose3d(
-                      13.474446,
-                      4.745482,
-                      0.308102,
-                      new Rotation3d(
-                          new Quaternion(0.8660254037844387, 0.0, 0.0, 0.49999999999999994)))),
-              new AprilTag(
-                  9,
-                  new Pose3d(
-                      12.643358,
-                      4.745482,
-                      0.308102,
-                      new Rotation3d(
-                          new Quaternion(0.5000000000000001, 0.0, 0.0, 0.8660254037844386)))),
-              new AprilTag(
-                  10,
-                  new Pose3d(
-                      12.227305999999999,
-                      4.0259,
-                      0.308102,
-                      new Rotation3d(new Quaternion(6.123233995736766e-17, 0.0, 0.0, 1.0)))),
-              new AprilTag(
-                  11,
-                  new Pose3d(
-                      12.643358,
-                      3.3063179999999996,
-                      0.308102,
-                      new Rotation3d(
-                          new Quaternion(-0.4999999999999998, -0.0, 0.0, 0.8660254037844387)))),
-              new AprilTag(
-                  12,
-                  new Pose3d(
-                      0.851154,
-                      0.65532,
-                      1.4859,
-                      new Rotation3d(
-                          new Quaternion(0.8910065241883679, 0.0, 0.0, 0.45399049973954675)))),
-              new AprilTag(
-                  13,
-                  new Pose3d(
-                      0.851154,
-                      7.3964799999999995,
-                      1.4859,
-                      new Rotation3d(
-                          new Quaternion(-0.8910065241883678, -0.0, 0.0, 0.45399049973954686)))),
-              new AprilTag(
-                  14,
-                  new Pose3d(
-                      8.272272,
-                      6.137656,
-                      1.8679160000000001,
-                      new Rotation3d(
-                          new Quaternion(
-                              5.914589856893349e-17,
-                              -0.25881904510252074,
-                              1.5848095757158825e-17,
-                              0.9659258262890683)))),
-              new AprilTag(
-                  15,
-                  new Pose3d(
-                      8.272272,
-                      1.914906,
-                      1.8679160000000001,
-                      new Rotation3d(
-                          new Quaternion(
-                              5.914589856893349e-17,
-                              -0.25881904510252074,
-                              1.5848095757158825e-17,
-                              0.9659258262890683)))),
-              new AprilTag(
-                  16,
-                  new Pose3d(
-                      5.9875419999999995,
-                      -0.0038099999999999996,
-                      1.30175,
-                      new Rotation3d(
-                          new Quaternion(0.7071067811865476, 0.0, 0.0, 0.7071067811865476)))),
-              new AprilTag(
-                  17,
-                  new Pose3d(
-                      4.073905999999999,
-                      3.3063179999999996,
-                      0.308102,
-                      new Rotation3d(
-                          new Quaternion(-0.4999999999999998, -0.0, 0.0, 0.8660254037844387)))),
-              new AprilTag(
-                  18,
-                  new Pose3d(
-                      3.6576,
-                      4.0259,
-                      0.308102,
-                      new Rotation3d(new Quaternion(6.123233995736766e-17, 0.0, 0.0, 1.0)))),
-              new AprilTag(
-                  19,
-                  new Pose3d(
-                      4.073905999999999,
-                      4.745482,
-                      0.308102,
-                      new Rotation3d(
-                          new Quaternion(0.5000000000000001, 0.0, 0.0, 0.8660254037844386)))),
-              new AprilTag(
-                  20,
-                  new Pose3d(
-                      4.904739999999999,
-                      4.745482,
-                      0.308102,
-                      new Rotation3d(
-                          new Quaternion(0.8660254037844387, 0.0, 0.0, 0.49999999999999994)))),
-              new AprilTag(
-                  21,
-                  new Pose3d(
-                      5.321046,
-                      4.0259,
-                      0.308102,
-                      new Rotation3d(new Quaternion(1.0, 0.0, 0.0, 0.0)))),
-              new AprilTag(
-                  22,
-                  new Pose3d(
-                      4.904739999999999,
-                      3.3063179999999996,
-                      0.308102,
-                      new Rotation3d(
-                          new Quaternion(-0.8660254037844387, -0.0, 0.0, 0.49999999999999994))))),
-          fieldLength,
-          fieldWidth);
 }

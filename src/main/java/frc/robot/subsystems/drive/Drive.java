@@ -1,10 +1,15 @@
+// Copyright (c) 2021-2026 Littleton Robotics
+// http://github.com/Mechanical-Advantage
+//
+// Use of this source code is governed by a BSD
+// license that can be found in the LICENSE file
+// at the root directory of this project.
+
 package frc.robot.subsystems.drive;
 
 import static edu.wpi.first.units.Units.*;
 
-import com.ctre.phoenix6.CANBus;
 import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.config.ModuleConfig;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
@@ -19,6 +24,7 @@ import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
@@ -33,12 +39,9 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
-import frc.robot.RobotContainer;
 import frc.robot.constants.Constants;
 import frc.robot.constants.Constants.Mode;
-import frc.robot.constants.FieldConstants;
 import frc.robot.constants.TunerConstants;
-import frc.robot.util.AllianceFlipUtil;
 import frc.robot.util.LocalADStarAK;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -47,9 +50,7 @@ import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase {
   // TunerConstants doesn't include these constants, so they are declared locally
-
-  static final double ODOMETRY_FREQUENCY =
-      new CANBus(TunerConstants.DrivetrainConstants.CANBusName).isNetworkFD() ? 250.0 : 100.0;
+  static final double ODOMETRY_FREQUENCY = TunerConstants.kCANBus.isNetworkFD() ? 250.0 : 100.0;
   public static final double DRIVE_BASE_RADIUS =
       Math.max(
           Math.max(
@@ -60,7 +61,7 @@ public class Drive extends SubsystemBase {
               Math.hypot(TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY)));
 
   // PathPlanner config constants
-  private static final double ROBOT_MASS_KG = 52.1631;
+  private static final double ROBOT_MASS_KG = 74.088;
   private static final double ROBOT_MOI = 6.883;
   private static final double WHEEL_COF = 1.2;
   private static final RobotConfig PP_CONFIG =
@@ -86,7 +87,7 @@ public class Drive extends SubsystemBase {
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
 
   private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(getModuleTranslations());
-  private Rotation2d rawGyroRotation = new Rotation2d();
+  private Rotation2d rawGyroRotation = Rotation2d.kZero;
   private SwerveModulePosition[] lastModulePositions = // For delta tracking
       new SwerveModulePosition[] {
         new SwerveModulePosition(),
@@ -95,7 +96,7 @@ public class Drive extends SubsystemBase {
         new SwerveModulePosition()
       };
   private SwerveDrivePoseEstimator poseEstimator =
-      new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, new Pose2d());
+      new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
 
   public Drive(
       GyroIO gyroIO,
@@ -129,15 +130,12 @@ public class Drive extends SubsystemBase {
     Pathfinding.setPathfinder(new LocalADStarAK());
     PathPlannerLogging.setLogActivePathCallback(
         (activePath) -> {
-          // Logger.recordOutput(
-          //     "Odometry/Trajectory", activePath.toArray(new Pose2d[activePath.size()]));
+          Logger.recordOutput("Odometry/Trajectory", activePath.toArray(new Pose2d[0]));
         });
     PathPlannerLogging.setLogTargetPoseCallback(
         (targetPose) -> {
-          // Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
+          Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
         });
-
-    registerNamedCommands();
 
     // Configure SysId
     sysId =
@@ -149,117 +147,6 @@ public class Drive extends SubsystemBase {
                 (state) -> Logger.recordOutput("Drive/SysIdState", state.toString())),
             new SysIdRoutine.Mechanism(
                 (voltage) -> runCharacterization(voltage.in(Volts)), null, this));
-  }
-
-  public void registerNamedCommands() {
-
-    NamedCommands.registerCommand(
-        "FLR",
-        (AutoBuilder.pathfindToPose(
-            (FieldConstants.Reef.centerFaces[5]), RobotContainer.constraints, 0)));
-
-    NamedCommands.registerCommand(
-        "BCL",
-        (AutoBuilder.pathfindToPose(
-            (FieldConstants.Reef.centerFaces[0]), RobotContainer.constraints, 0)));
-
-    NamedCommands.registerCommand(
-        "FRL",
-        (AutoBuilder.pathfindToPose(
-            (FieldConstants.Reef.centerFaces[8]), RobotContainer.constraints, 0)));
-
-    NamedCommands.registerCommand(
-        "FRR",
-        (AutoBuilder.pathfindToPose(
-            (FieldConstants.Reef.centerFaces[9]), RobotContainer.constraints, 0)));
-
-    NamedCommands.registerCommand(
-        "FCR",
-        (AutoBuilder.pathfindToPose(
-            (FieldConstants.Reef.centerFaces[7]), RobotContainer.constraints, 0)));
-
-    NamedCommands.registerCommand(
-        "BRR",
-        (AutoBuilder.pathfindToPose(
-            (FieldConstants.Reef.centerFaces[11]), RobotContainer.constraints, 0)));
-
-    NamedCommands.registerCommand(
-        "BRL",
-        (AutoBuilder.pathfindToPose(
-            (FieldConstants.Reef.centerFaces[10]), RobotContainer.constraints, 0)));
-
-    NamedCommands.registerCommand(
-        "BLL",
-        (AutoBuilder.pathfindToPose(
-            (FieldConstants.Reef.centerFaces[2]), RobotContainer.constraints, 0)));
-
-    NamedCommands.registerCommand(
-        "BLR",
-        (AutoBuilder.pathfindToPose(
-            (FieldConstants.Reef.centerFaces[3]), RobotContainer.constraints, 0)));
-
-    NamedCommands.registerCommand(
-        "FLR-RED",
-        (AutoBuilder.pathfindToPose(
-            AllianceFlipUtil.apply(FieldConstants.Reef.centerFaces[5]),
-            RobotContainer.constraints,
-            0)));
-
-    NamedCommands.registerCommand(
-        "BCL-RED",
-        (AutoBuilder.pathfindToPose(
-            AllianceFlipUtil.apply(FieldConstants.Reef.centerFaces[0]),
-            RobotContainer.constraints,
-            0)));
-
-    NamedCommands.registerCommand(
-        "FRL-RED",
-        (AutoBuilder.pathfindToPose(
-            AllianceFlipUtil.apply(FieldConstants.Reef.centerFaces[8]),
-            RobotContainer.constraints,
-            0)));
-
-    NamedCommands.registerCommand(
-        "FRR-RED",
-        (AutoBuilder.pathfindToPose(
-            AllianceFlipUtil.apply(FieldConstants.Reef.centerFaces[9]),
-            RobotContainer.constraints,
-            0)));
-
-    NamedCommands.registerCommand(
-        "FCR-RED",
-        (AutoBuilder.pathfindToPose(
-            AllianceFlipUtil.apply(FieldConstants.Reef.centerFaces[7]),
-            RobotContainer.constraints,
-            0)));
-
-    NamedCommands.registerCommand(
-        "BRR-RED",
-        (AutoBuilder.pathfindToPose(
-            AllianceFlipUtil.apply(FieldConstants.Reef.centerFaces[11]),
-            RobotContainer.constraints,
-            0)));
-
-    NamedCommands.registerCommand(
-        "BRL-RED",
-        (AutoBuilder.pathfindToPose(
-            AllianceFlipUtil.apply(FieldConstants.Reef.centerFaces[10]),
-            RobotContainer.constraints,
-            0)));
-
-    NamedCommands.registerCommand(
-        "BLL-RED",
-        (AutoBuilder.pathfindToPose(
-            AllianceFlipUtil.apply(FieldConstants.Reef.centerFaces[2]),
-            RobotContainer.constraints,
-            0)));
-
-    NamedCommands.registerCommand(
-        "BLR-RED",
-        (AutoBuilder.pathfindToPose(
-            AllianceFlipUtil.apply(FieldConstants.Reef.centerFaces[3]),
-            RobotContainer.constraints,
-            0)));
   }
 
   @Override
@@ -280,10 +167,10 @@ public class Drive extends SubsystemBase {
     }
 
     // Log empty setpoint states when disabled
-    // if (DriverStation.isDisabled()) {
-    //   Logger.recordOutput("SwerveStates/Setpoints", new SwerveModuleState[] {});
-    //   Logger.recordOutput("SwerveStates/SetpointsOptimized", new SwerveModuleState[] {});
-    // }
+    if (DriverStation.isDisabled()) {
+      Logger.recordOutput("SwerveStates/Setpoints", new SwerveModuleState[] {});
+      Logger.recordOutput("SwerveStates/SetpointsOptimized", new SwerveModuleState[] {});
+    }
 
     // Update odometry
     double[] sampleTimestamps =
@@ -309,8 +196,8 @@ public class Drive extends SubsystemBase {
         rawGyroRotation = gyroInputs.odometryYawPositions[i];
       } else {
         // Use the angle delta from the kinematics and module deltas
-        rawGyroRotation =
-            rawGyroRotation.plus(new Rotation2d(kinematics.toTwist2d(moduleDeltas).dtheta));
+        Twist2d twist = kinematics.toTwist2d(moduleDeltas);
+        rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
       }
 
       // Apply update
@@ -333,8 +220,8 @@ public class Drive extends SubsystemBase {
     SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, TunerConstants.kSpeedAt12Volts);
 
     // Log unoptimized setpoints and setpoint speeds
-    // Logger.recordOutput("SwerveStates/Setpoints", setpointStates);
-    // Logger.recordOutput("SwerveChassisSpeeds/Setpoints", discreteSpeeds);
+    Logger.recordOutput("SwerveStates/Setpoints", setpointStates);
+    Logger.recordOutput("SwerveChassisSpeeds/Setpoints", discreteSpeeds);
 
     // Send setpoints to modules
     for (int i = 0; i < 4; i++) {
@@ -342,23 +229,7 @@ public class Drive extends SubsystemBase {
     }
 
     // Log optimized setpoints (runSetpoint mutates each state)
-    // Logger.recordOutput("SwerveStates/SetpointsOptimized", setpointStates);
-  }
-
-  /**
-   * Runs the drive at the desired velocity.
-   *
-   * @param xSpeed Speed in the x direction (meters/sec)
-   * @param ySpeed Speed in the y direction (meters/sec)
-   * @param rot Angular speed (radians/sec)
-   * @param fieldRelative Whether the speeds are field-relative
-   */
-  public void runVelocity(double xSpeed, double ySpeed, double rot, boolean fieldRelative) {
-    ChassisSpeeds speeds = new ChassisSpeeds(xSpeed, ySpeed, rot);
-    if (fieldRelative) {
-      speeds = ChassisSpeeds.fromFieldRelativeSpeeds(speeds, getRotation());
-    }
-    runVelocity(speeds);
+    Logger.recordOutput("SwerveStates/SetpointsOptimized", setpointStates);
   }
 
   /** Runs the drive in a straight line with the specified drive output. */
@@ -462,18 +333,17 @@ public class Drive extends SubsystemBase {
       Pose2d visionRobotPoseMeters,
       double timestampSeconds,
       Matrix<N3, N1> visionMeasurementStdDevs) {
-
     poseEstimator.addVisionMeasurement(
         visionRobotPoseMeters, timestampSeconds, visionMeasurementStdDevs);
   }
 
   /** Returns the maximum linear speed in meters per sec. */
-  public static double getMaxLinearSpeedMetersPerSec() {
+  public double getMaxLinearSpeedMetersPerSec() {
     return TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
   }
 
   /** Returns the maximum angular speed in radians per sec. */
-  public static double getMaxAngularSpeedRadPerSec() {
+  public double getMaxAngularSpeedRadPerSec() {
     return getMaxLinearSpeedMetersPerSec() / DRIVE_BASE_RADIUS;
   }
 
