@@ -20,14 +20,17 @@ import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.subsystems.vision.VisionIO.PoseObservationType;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
 
 public class Vision extends SubsystemBase {
@@ -35,9 +38,17 @@ public class Vision extends SubsystemBase {
   private final VisionIO[] io;
   private final VisionIOInputsAutoLogged[] inputs;
   private final Alert[] disconnectedAlerts;
+  private final Supplier<Pose2d> groundTruthSupplier; // optional; used for sim fallback
 
+  // Backwards-compatible constructor (no ground-truth supplier)
   public Vision(VisionConsumer consumer, VisionIO... io) {
+    this(consumer, null, io);
+  }
+
+  // New constructor accepts optional ground-truth supplier for simulation
+  public Vision(VisionConsumer consumer, Supplier<Pose2d> groundTruthSupplier, VisionIO... io) {
     this.consumer = consumer;
+    this.groundTruthSupplier = groundTruthSupplier;
     this.io = io;
 
     // Initialize inputs
@@ -48,7 +59,8 @@ public class Vision extends SubsystemBase {
 
     // Initialize disconnected alerts
     this.disconnectedAlerts = new Alert[io.length];
-    for (int i = 0; i < inputs.length; i++) {
+    // Use io.length here so the number of alerts matches the provided IO devices
+    for (int i = 0; i < io.length; i++) {
       disconnectedAlerts[i] =
           new Alert(
               "Vision camera " + Integer.toString(i) + " is disconnected.", AlertType.kWarning);
@@ -61,7 +73,15 @@ public class Vision extends SubsystemBase {
    * @param cameraIndex The index of the camera to use.
    */
   public Rotation2d getTargetX(int cameraIndex) {
-    return inputs[cameraIndex].latestTargetObservation.tx();
+    // Safely handle invalid indices and missing observations to avoid NPE/IOOBE.
+    if (cameraIndex < 0 || cameraIndex >= inputs.length) {
+      return new Rotation2d();
+    }
+    var obs = inputs[cameraIndex].latestTargetObservation;
+    if (obs == null) {
+      return new Rotation2d();
+    }
+    return obs.tx();
   }
 
   public void periodic() {
@@ -75,6 +95,66 @@ public class Vision extends SubsystemBase {
     List<Pose3d> allRobotPoses = new LinkedList<>();
     List<Pose3d> allRobotPosesAccepted = new LinkedList<>();
     List<Pose3d> allRobotPosesRejected = new LinkedList<>();
+
+    // If there are no configured IO devices but we have a ground-truth supplier, generate
+    // simulated vision measurements for two virtual Limelight-like cameras. Populate per-camera
+    // logs so Advantage Scope shows camera and summary data.
+    if (io.length == 0 && groundTruthSupplier != null) {
+      Pose2d truth = groundTruthSupplier.get();
+      double timestamp = Timer.getFPGATimestamp();
+
+      // Number of simulated cameras (two Limelight4s)
+      final int simulatedCameras = 2;
+      for (int cam = 0; cam < simulatedCameras; cam++) {
+        // Slightly vary stddev per camera to simulate different mounting/noise characteristics
+        double linearStd = 0.05 + cam * 0.02;
+        double angularStd = 0.02 + cam * 0.01;
+        // Stagger timestamps slightly to emulate different capture times
+        double camTimestamp = timestamp - cam * 0.005;
+
+        // Forward the simulated observation to the drivetrain pose estimator
+        consumer.accept(truth, camTimestamp, VecBuilder.fill(linearStd, linearStd, angularStd));
+
+        // Build Pose3d for logging (z = 0.0 for flat field; use yaw from Pose2d)
+        Pose3d robotPose3d =
+            new Pose3d(
+                truth.getX(),
+                truth.getY(),
+                0.0,
+                new Rotation3d(0.0, 0.0, truth.getRotation().getRadians()));
+
+        // Populate tag poses from the apriltag layout for camera logs
+        List<Pose3d> tagPoses = new LinkedList<>();
+        // aprilTagLayout.getTags() returns a List<AprilTag>; extract each tag's pose
+        for (var aprilTag : aprilTagLayout.getTags()) {
+          // AprilTag exposes its pose as the 'pose' field
+          tagPoses.add(aprilTag.pose);
+        }
+
+        // Per-camera robot pose lists (accepted)
+        List<Pose3d> robotPoses = new LinkedList<>();
+        robotPoses.add(robotPose3d);
+        List<Pose3d> robotPosesAccepted = new LinkedList<>(robotPoses);
+
+        // Record camera-level outputs so Advantage Scope shows them
+        Logger.recordOutput(
+            "Vision/Camera" + Integer.toString(cam) + "/TagPoses", tagPoses.toArray(new Pose3d[0]));
+        Logger.recordOutput(
+            "Vision/Camera" + Integer.toString(cam) + "/RobotPoses",
+            robotPoses.toArray(new Pose3d[0]));
+        Logger.recordOutput(
+            "Vision/Camera" + Integer.toString(cam) + "/RobotPosesAccepted",
+            robotPosesAccepted.toArray(new Pose3d[0]));
+
+        // Add to summary collections
+        allTagPoses.addAll(tagPoses);
+        allRobotPoses.addAll(robotPoses);
+        allRobotPosesAccepted.addAll(robotPosesAccepted);
+      }
+
+      // Log the generated ground-truth pose for debugging
+      Logger.recordOutput("Vision/Sim/GeneratedPose", truth);
+    }
 
     // Loop over cameras
     for (int cameraIndex = 0; cameraIndex < io.length; cameraIndex++) {
