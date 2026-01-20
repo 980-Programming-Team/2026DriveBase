@@ -12,43 +12,27 @@ import frc.robot.subsystems.vision.*;
 import java.util.HashMap;
 
 public class Targeting extends SubsystemBase {
-  // only do when moving and set up first version
-  private NetworkTable limelight;
-  private NetworkTableEntry tv;
-  private NetworkTableEntry tx;
-  private NetworkTableEntry ty;
 
-  private double validTarget;
-  private double x;
-  private double y;
-  // position, velocity or angle in radians respectively
-  private HashMap<Double, Double> firingTable = new HashMap<Double, Double>();
-  private HashMap<Double, Double> angleTable = new HashMap<Double, Double>();
-  SwerveDrivePoseEstimator posEstimator;
-  Pose2d pose2d;
-  Translation2d translation2d;
-  Rotation2d rotation2d;
-  Translation2d hubCenter = FieldConstants.Hub.center.getTranslation();
+  private final SwerveDrivePoseEstimator posEstimator;
+  private final Translation2d hubCenter =
+      FieldConstants.Hub.center.getTranslation();
 
-  private VisionIOLimelight visionIOInputsLimelight;
-
-  public Targeting(VisionIOLimelight visionIOLimelight, SwerveDrivePoseEstimator pos) {
-    posEstimator = pos;
-    this.visionIOInputsLimelight = visionIOLimelight;
-    pose2d = new Pose2d();
-    rotation2d = new Rotation2d();
-    translation2d = new Translation2d();
+  public Targeting(SwerveDrivePoseEstimator posEstimator) {
+    this.posEstimator = posEstimator;
   }
 
-  @Override
-  public void periodic() {
-    pose2d = posEstimator.getEstimatedPosition();
-    translation2d = pose2d.getTranslation();
-    rotation2d = pose2d.getRotation();
-  }
+  public Rotation2d getRotationErrorToHub(double offsetRadians) {
+    Pose2d pose = posEstimator.getEstimatedPosition();
 
-  private void RotateRobot(Pose2d aprilTag) {
-    Translation2d toTarget = hubCenter.minus(translation2d);
-    Rotation2d rotationToFace = new Rotation2d(Math.atan2(toTarget.getY(), toTarget.getX()));
+    Translation2d robotPos = pose.getTranslation();
+    Rotation2d robotHeading = pose.getRotation();
+
+    Translation2d toHub = hubCenter.minus(robotPos);
+
+    Rotation2d desiredHeading =
+        new Rotation2d(Math.atan2(toHub.getY(), toHub.getX()))
+            .plus(Rotation2d.fromRadians(offsetRadians));
+
+    return desiredHeading.minus(robotHeading);
   }
 }

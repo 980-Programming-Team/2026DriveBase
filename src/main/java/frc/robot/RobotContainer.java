@@ -15,17 +15,15 @@ import frc.robot.commands.DriveCommands;
 import frc.robot.constants.Constants;
 import frc.robot.constants.TunerConstants;
 import frc.robot.subsystems.Superstructure;
-import frc.robot.subsystems.drive.Drive;
-import frc.robot.subsystems.drive.GyroIO;
-import frc.robot.subsystems.drive.GyroIOPigeon2;
-import frc.robot.subsystems.drive.ModuleIO;
-import frc.robot.subsystems.drive.ModuleIOSim;
-import frc.robot.subsystems.drive.ModuleIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOLimelight;
+
+import java.lang.annotation.Target;
+
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
+import frc.robot.subsystems.drive.*;
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -38,8 +36,10 @@ public class RobotContainer {
   //// Subsystems
   private final Drive drive;
   private final Vision vision;
+  private static Targeting target;
 
-  public static Superstructure superstructure = new Superstructure();
+ 
+  public static Superstructure superstructure = new Superstructure(target);
   //        ^^^^^^^^^^^^^^ <- whole robot works in Superstructure object
   //                           -> right click and click "Go To Defintion" to read
   //                              or through vscode explorer in subsystems folder
@@ -87,6 +87,7 @@ public class RobotContainer {
                 new ModuleIOSim(TunerConstants.BackRight));
 
         vision = new Vision(drive::addVisionMeasurement, new VisionIO() {}, new VisionIO() {});
+        target = new Targeting(drive.poseEstimator);
         break;
 
       default:
@@ -100,6 +101,7 @@ public class RobotContainer {
                 new ModuleIO() {});
 
         vision = new Vision(drive::addVisionMeasurement, new VisionIO() {}, new VisionIO() {});
+        
         break;
     }
 
@@ -154,6 +156,13 @@ public class RobotContainer {
                             new Pose2d(drive.getPose().getTranslation(), new Rotation2d())),
                     drive)
                 .ignoringDisable(true));
+    driver.getDriver().leftBumper().whileTrue(
+    new RotateCommand(
+        drive,
+        target,
+        0.0   // radians offset ex: Math.toRadians(5.0 degrees)
+        )
+    );
 
     // Xbox Controller:
     driver.configScoringPosButtons();

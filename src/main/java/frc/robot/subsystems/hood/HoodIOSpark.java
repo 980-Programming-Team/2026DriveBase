@@ -1,0 +1,151 @@
+package frc.robot.subsystems.hood;
+
+import com.revrobotics.RelativeEncoder;
+import com.revrobotics.spark.SparkBase;
+import com.revrobotics.spark.SparkBase.ControlType;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.config.SparkBaseConfig;
+import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
+import com.revrobotics.spark.config.SparkMaxConfig;
+import com.revrobotics.spark.config.LimitSwitchConfig.Behavior;
+
+import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.wpilibj.DutyCycleEncoder;
+// import edu.wpi.first.wpilibj.Encoder;
+import frc.robot.constants.Constants;
+import org.littletonrobotics.junction.Logger;
+
+public class HoodIOSpark implements HoodIO {
+  private SparkBase spark;
+  //private SparkBase follower;
+
+  private DutyCycleEncoder throughBoreEncoder;
+
+  private RelativeEncoder encoder;
+
+  private PIDController pidController;
+
+  private SparkMaxConfig leaderConfig;
+  //private SparkMaxConfig followerConfig;
+
+  public HoodIOSpark() {
+    spark =
+        new SparkMax(
+            Constants.Elevator.kElevatorRoboRio,
+            MotorType.kBrushless); // The leader is on the side of the robo rio
+    // follower =
+    //     new SparkMax(
+    //         Constants.Elevator.kElevatorPDH,
+    //         MotorType.kBrushless); // The follower is on the side of the PDH
+
+    leaderConfig = new SparkMaxConfig();
+    // followerConfig = new SparkMaxConfig();
+
+    // throughBoreEncoder = new Encoder(Constants.Elevator.EncoderDIO2,
+    // Constants.Elevator.EncoderDIO3);
+    // throughBoreEncoder.reset();
+
+    configureLeader(spark, leaderConfig);
+    // configureFollower(follower, followerConfig);
+
+    throughBoreEncoder = new DutyCycleEncoder(5, 250.0, 0.0);
+    throughBoreEncoder.setInverted(true);
+
+    pidController = new PIDController(1.0, 0.0, 0.0);
+  }
+
+  private void configureLeader(SparkBase motor, SparkBaseConfig config) {
+
+    encoder = motor.getEncoder();
+    encoder.setPosition(0);
+
+    motor.clearFaults();
+    config.idleMode(IdleMode.kBrake);
+    config.inverted(false);
+    config.limitSwitch.forwardLimitSwitchTriggerBehavior(Behavior.kKeepMovingMotor);
+    //config.limitSwitch.forwardLimitSwitchEnabled(false);
+    // config.limitSwitch.forwardLimitSwitchEnabled(false);
+    config.smartCurrentLimit(Constants.Elevator.supplyCurrentLimit);
+    config.closedLoop.pid(3, 0, 0.0);
+    config.closedLoop.outputRange(Constants.Elevator.minOutput, Constants.Elevator.maxOutput);
+
+    motor.configure(config, SparkBase.ResetMode.kNoResetSafeParameters, SparkBase.PersistMode.kNoPersistParameters);
+  }
+
+  private void configureFollower(SparkBase motor, SparkBaseConfig config) {
+
+    motor.clearFaults();
+    config.follow(spark, true);
+    config.idleMode(IdleMode.kBrake);
+    config.limitSwitch.forwardLimitSwitchEnabled(false);
+    config.limitSwitch.forwardLimitSwitchEnabled(false);
+    config.smartCurrentLimit(Constants.Elevator.supplyCurrentLimit);
+    
+    motor.configure(config, null, null);
+  }
+
+  @Override
+  public void updateInputs(ElevatorIOInputs inputs) {
+    inputs.kRoborioMotorConnected = (spark.getFirmwareVersion() != 0);
+    inputs.kPDHMotorConnected = (spark.getFirmwareVersion() != 0);
+    inputs.posMeters = rotationsToMeters(spark.getEncoder().getPosition());
+    inputs.pos = spark.getEncoder().getPosition();
+    inputs.absPos = throughBoreEncoder.get();
+    inputs.velMetersPerSecond =
+        rotationsToMeters(spark.getEncoder().getVelocity()); // throughBoreEncoder.getRate()
+    inputs.appliedVoltage = spark.getBusVoltage();
+    inputs.followerAppliedVoltage = follower.getBusVoltage();
+    inputs.followerSupplyCurrentAmps = follower.getOutputCurrent();
+    inputs.supplyCurrentAmps = spark.getOutputCurrent();
+    inputs.tempCelsius =
+        new double[] {spark.getMotorTemperature(), follower.getMotorTemperature()};
+  }
+
+  @Override
+  public void setHeight(double targetPosition) {
+    spark.getClosedLoopController().setReference(targetPosition, ControlType.kPosition);
+    // leader.setVoltage(heightMeters);
+    Logger.recordOutput("Elevator/TargetPosition", targetPosition);
+  }
+
+  @Override
+  public void setVoltage(double voltage) {
+    spark.setVoltage(voltage);
+    follower.setVoltage(voltage);
+  }
+
+  // @Override
+  // public void seedPosition(double motorPositionRot) {
+  //   encoder.setPosition(motorPositionRot);
+  // }
+
+  @Override
+  public void stop() {
+    spark.stopMotor();
+    follower.stopMotor();
+  }
+
+  @Override
+  public void enableBrakeMode(boolean enable) {
+    leaderConfig.idleMode(IdleMode.kBrake);
+    followerConfig.idleMode(IdleMode.kBrake);
+  }
+
+  @Override
+  public void enableCoastMode(boolean enable) {
+    leaderConfig.idleMode(IdleMode.kCoast);
+    followerConfig.idleMode(IdleMode.kCoast);
+  }
+
+  // private double metersToRotations(double heightMeters) {
+  //   return (heightMeters / (Math.PI * Constants.Elevator.sprocketDiameter))
+  //       * Constants.Elevator.gearRatio;
+  // }
+
+  private double rotationsToMeters(double rotations) {
+    return rotations
+        / Constants.Elevator.gearRatio
+        * (Math.PI * Constants.Elevator.sprocketDiameter);
+  }
+}
